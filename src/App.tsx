@@ -9,7 +9,8 @@ import Assignments from './pages/Assignments';
 import ReportNumbers from './pages/ReportNumbers';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
-import DragTest from './pages/DragTest';
+import Contacts from './pages/Contacts';
+import GHLTest from './pages/GHLTest';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -93,18 +94,26 @@ function App() {
                 }
               />
               <Route
-                path="/settings"
+                path="/contacts"
                 element={
                   <PrivateRoute>
-                    <Settings />
+                    <Contacts />
                   </PrivateRoute>
                 }
               />
               <Route
-                path="/drag-test"
+                path="/ghl-test"
                 element={
                   <PrivateRoute>
-                    <DragTest />
+                    <GHLTest />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/settings"
+                element={
+                  <PrivateRoute>
+                    <Settings />
                   </PrivateRoute>
                 }
               />

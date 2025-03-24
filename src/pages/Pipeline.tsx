@@ -13,24 +13,15 @@ import {
   Loader2
 } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import { createOpportunity, updateOpportunity } from '../lib/ghl';
-import { usePipelineStore } from '../lib/store';
-import type { GHLOpportunity } from '../lib/types';
+import { getPipelines, getOpportunities, createOpportunity, updateOpportunity } from '../lib/ghl';
+import type { GHLPipeline, GHLOpportunity, GHLPipelineStage } from '../lib/types';
 import { useAuth } from '../contexts/AuthContext';
 import { format } from 'date-fns';
 
 export default function Pipeline() {
   const { session } = useAuth();
-  const { 
-    pipeline,
-    opportunities,
-    isLoading,
-    error,
-    fetchPipelineData,
-    updateOpportunity: updateStoreOpportunity,
-    addOpportunity: addStoreOpportunity
-  } = usePipelineStore();
-
+  const [pipeline, setPipeline] = useState<GHLPipeline | null>(null);
+  const [opportunities, setOpportunities] = useState<GHLOpportunity[]>([]);
   const [showNewLeadModal, setShowNewLeadModal] = useState(false);
   const [newLead, setNewLead] = useState({
     title: '',
@@ -38,17 +29,39 @@ export default function Pipeline() {
     notes: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [currentMonth] = useState(format(new Date(), 'MMMM yyyy'));
 
   useEffect(() => {
-    // Initial fetch
-    fetchPipelineData();
-
-    // Set up polling interval
-    const interval = setInterval(fetchPipelineData, 3000);
-
-    return () => clearInterval(interval);
+    loadPipelineData();
   }, []);
+
+  const loadPipelineData = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // Get pipelines first
+      const pipelines = await getPipelines();
+      if (!pipelines.length) {
+        throw new Error('No pipelines found');
+      }
+
+      // Use the first pipeline
+      const selectedPipeline = pipelines[0];
+      setPipeline(selectedPipeline);
+
+      // Get opportunities for this pipeline
+      const opportunitiesResponse = await getOpportunities(selectedPipeline.id);
+      setOpportunities(opportunitiesResponse.opportunities);
+    } catch (err) {
+      setError('Failed to load pipeline data. Please try again.');
+      console.error('Failed to load pipeline:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const getStageValue = (stageId: string) => {
     return opportunities
@@ -66,7 +79,13 @@ export default function Pipeline() {
     if (!opportunity) return;
 
     // Optimistically update UI
-    updateStoreOpportunity(draggableId, { stage: destination.droppableId });
+    setOpportunities(prev => 
+      prev.map(opp => 
+        opp.id === draggableId 
+          ? { ...opp, stage: destination.droppableId }
+          : opp
+      )
+    );
 
     try {
       await updateOpportunity(draggableId, {
@@ -74,9 +93,9 @@ export default function Pipeline() {
         pipelineId: pipeline.id
       });
     } catch (err) {
+      setError('Failed to update opportunity. Please try again.');
       console.error('Failed to update opportunity:', err);
-      // Revert optimistic update by fetching fresh data
-      fetchPipelineData();
+      await loadPipelineData(); // Reload to get correct state
     }
   };
 
@@ -85,6 +104,7 @@ export default function Pipeline() {
     if (!pipeline) return;
 
     setIsSubmitting(true);
+    setError(null);
 
     try {
       const value = parseFloat(newLead.value);
@@ -102,7 +122,7 @@ export default function Pipeline() {
         throw new Error('No stages found in pipeline');
       }
 
-      const newOpportunity = await createOpportunity({
+      await createOpportunity({
         title: newLead.title.trim(),
         value: value,
         notes: newLead.notes,
@@ -110,13 +130,11 @@ export default function Pipeline() {
         stage: firstStage.id
       });
 
-      // Update local store
-      addStoreOpportunity(newOpportunity);
-
       setNewLead({ title: '', value: '', notes: '' });
       setShowNewLeadModal(false);
+      await loadPipelineData();
     } catch (err) {
-      console.error('Failed to create opportunity:', err);
+      setError(err instanceof Error ? err.message : 'Failed to create opportunity');
     } finally {
       setIsSubmitting(false);
     }
@@ -309,6 +327,7 @@ export default function Pipeline() {
                   type="button"
                   onClick={() => {
                     setShowNewLeadModal(false);
+                    setError(null);
                     setNewLead({ title: '', value: '', notes: '' });
                   }}
                   className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"

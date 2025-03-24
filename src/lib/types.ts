@@ -2,6 +2,10 @@ import { Database } from './database.types';
 
 export type Profile = Database['public']['Tables']['profiles']['Row'];
 export type PerformanceMetric = Database['public']['Tables']['performance_metrics']['Row'];
+export type CoachingSession = Database['public']['Tables']['coaching_sessions']['Row'];
+export type CoachingProgram = Database['public']['Tables']['coaching_programs']['Row'];
+export type ProgramSession = Database['public']['Tables']['program_sessions']['Row'];
+export type UserAssignment = Database['public']['Tables']['user_assignments']['Row'];
 export type PipelineEntry = Database['public']['Tables']['pipeline_entries']['Row'];
 export type CallAttempt = Database['public']['Tables']['call_attempts']['Row'];
 
@@ -12,7 +16,8 @@ export type PipelineStage =
   | 'CONVERSATIONS'
   | 'APPOINTMENTS'
   | 'FOLLOW_UP'
-  | 'CLOSED';
+  | 'CLOSED'
+  | 'LOST';
 
 export type PipelineStatus = 'OPEN' | 'WON' | 'LOST';
 
@@ -21,10 +26,10 @@ export interface PipelineMetrics {
   totalValue: number;
   closedDeals: number;
   closedValue: number;
-  wonDeals?: number;
-  wonValue?: number;
-  lostDeals?: number;
-  lostValue?: number;
+  wonDeals: number;
+  wonValue: number;
+  lostDeals: number;
+  lostValue: number;
 }
 
 export interface MonthlyPerformance {
@@ -36,9 +41,28 @@ export interface MonthlyPerformance {
   pipelineMetrics: PipelineMetrics;
 }
 
+export interface AssignmentWithDetails extends UserAssignment {
+  session: ProgramSession;
+  program: CoachingProgram;
+}
+
 export interface CallListEntry extends PipelineEntry {
   call_attempts?: CallAttempt[];
   latest_attempt?: CallAttempt;
+}
+
+export interface DragDropResult {
+  draggableId: string;
+  type: string;
+  source: {
+    droppableId: string;
+    index: number;
+  };
+  destination: {
+    droppableId: string;
+    index: number;
+  } | null;
+  reason: 'DROP' | 'CANCEL';
 }
 
 export interface GHLContact {
@@ -66,41 +90,49 @@ export interface GHLContactsResponse {
 export interface GHLLocation {
   id: string;
   name: string;
-  address: string;
-  timezone: string;
-}
-
-export interface GHLPipeline {
-  id: string;
-  name: string;
-  stages: {
-    id: string;
-    name: string;
-    order: number;
-    color?: string;
-  }[];
+  address?: {
+    line1?: string;
+    line2?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    postalCode?: string;
+  };
+  phone?: string;
+  email?: string;
+  website?: string;
+  timezone?: string;
 }
 
 export interface GHLOpportunity {
   id: string;
   title: string;
-  value?: number;
+  value: number;
   status: string;
   stage: string;
   pipelineId: string;
-  contactId?: string;
-  contact?: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    email?: string;
-    tags?: string[];
-  };
+  contactId: string;
+  contact?: GHLContact;
   dateAdded: string;
   dateUpdated: string;
   customFields?: Record<string, any>;
   notes?: string;
   tags?: string[];
+}
+
+export interface GHLPipeline {
+  id: string;
+  name: string;
+  stages: GHLPipelineStage[];
+  dateAdded: string;
+  dateUpdated: string;
+}
+
+export interface GHLPipelineStage {
+  id: string;
+  name: string;
+  order: number;
+  color?: string;
 }
 
 export interface GHLOpportunityResponse {
@@ -110,29 +142,5 @@ export interface GHLOpportunityResponse {
     count: number;
     currentPage: number;
     totalPages: number;
-    nextPageUrl: string | null;
   };
-}
-
-export interface GHLTask {
-  id: string;
-  title: string;
-  description?: string;
-  dueDate: string;
-  status: string;
-  assignedTo?: string;
-  contactId?: string;
-  opportunityId?: string;
-}
-
-export interface TestItem {
-  id: string;
-  content: string;
-  color?: string;
-}
-
-export interface Column {
-  id: string;
-  title: string;
-  items: TestItem[];
 }
